@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Timestamp Tool</title>
+
+<style>
+
+body{
+font-family:Arial;
+margin:20px;
+}
+
+canvas{
+display:none;
+}
+
+button{
+margin:10px;
+padding:10px 20px;
+font-size:16px;
+cursor:pointer;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h2>Batch Timestamp Tool</h2>
+
+<h3>Option 1</h3>
+<button onclick="document.getElementById('file1').click()">Chọn tệp</button>
+<input type="file" id="file1" multiple style="display:none" onchange="processImages(this.files,1)">
+
+<h3>Option 2</h3>
+<button onclick="document.getElementById('file2').click()">Chọn tệp</button>
+<input type="file" id="file2" multiple style="display:none" onchange="processImages(this.files,2)">
+
+<br><br>
+
+Ngày <input id="day">
+Tháng <input id="month">
+Năm <input id="year"><br><br>
+
+Giờ <input id="hour">
+Phút <input id="minute"><br><br>
+
+Địa điểm <input id="location" value="Đà Nẵng">
+
+<canvas id="canvas"></canvas>
+
+<script>
+
+// kích thước ảnh xuất
+const TARGET_W = 2560
+const TARGET_H = 1920
+
+// tự lấy thời gian khi mở tool
+window.onload = function(){
+
+const now = new Date()
+
+document.getElementById("day").value = String(now.getDate()).padStart(2,'0')
+document.getElementById("month").value = String(now.getMonth()+1).padStart(2,'0')
+document.getElementById("year").value = now.getFullYear()
+
+document.getElementById("hour").value = String(now.getHours()).padStart(2,'0')
+document.getElementById("minute").value = String(now.getMinutes()).padStart(2,'0')
+
+}
+
+// random phút
+function randomMinutes(){
+return Math.floor(Math.random()*5)+3
+}
+
+// format thời gian
+function formatTime(date){
+
+let d = String(date.getDate()).padStart(2,'0')
+let m = String(date.getMonth()+1).padStart(2,'0')
+let y = date.getFullYear()
+
+let h = String(date.getHours()).padStart(2,'0')
+let min = String(date.getMinutes()).padStart(2,'0')
+
+return `${d}/${m}/${y} ${h}:${min}`
+
+}
+
+// xử lý batch
+async function processImages(files,option){
+
+let baseDate=new Date(
+document.getElementById("year").value,
+document.getElementById("month").value-1,
+document.getElementById("day").value,
+document.getElementById("hour").value,
+document.getElementById("minute").value
+)
+
+const location=document.getElementById("location").value
+
+for(let i=0;i<files.length;i++){
+
+await processOne(files[i],baseDate,location,i,option)
+
+baseDate.setMinutes(baseDate.getMinutes()+randomMinutes())
+
+}
+
+}
+
+function processOne(file,date,location,index,option){
+
+return new Promise(resolve=>{
+
+const reader=new FileReader()
+
+reader.onload=function(e){
+
+const img=new Image()
+
+img.onload=function(){
+
+const canvas=document.getElementById("canvas")
+const ctx=canvas.getContext("2d")
+
+canvas.width = TARGET_W
+canvas.height = TARGET_H
+
+let cropX,cropY,cropWidth,cropHeight
+
+if(option==1){
+
+// OPTION 1
+
+const cropTop = 260
+
+cropHeight = img.height - cropTop
+cropWidth = cropHeight * (4/3)
+
+cropX = 0
+cropY = cropTop
+
+}else{
+
+// OPTION 2
+
+const targetRatio = 4/3
+const imgRatio = img.width / img.height
+
+if(imgRatio > targetRatio){
+
+cropHeight = img.height
+cropWidth = cropHeight * targetRatio
+cropX = (img.width - cropWidth)/2
+cropY = 0
+
+}else{
+
+cropWidth = img.width
+cropHeight = cropWidth / targetRatio
+cropX = 0
+cropY = (img.height - cropHeight)/2
+
+}
+
+}
+
+// resize
+
+ctx.drawImage(
+img,
+cropX,
+cropY,
+cropWidth,
+cropHeight,
+0,
+0,
+TARGET_W,
+TARGET_H
+)
+
+// timestamp
+
+ctx.textAlign="right"
+ctx.textBaseline="top"
+
+ctx.font = option==1 ? "80px Arial" : "79px Arial"
+
+ctx.shadowColor="black"
+ctx.shadowBlur=0
+ctx.shadowOffsetX=1
+ctx.shadowOffsetY=-1
+
+ctx.fillStyle="white"
+
+const x = TARGET_W - 85
+const y = 95
+
+ctx.fillText(formatTime(date),x,y)
+ctx.fillText(location,x,y+64)
+
+// export
+
+const link=document.createElement("a")
+
+link.download=`timestamp_${index+1}.jpg`
+link.href=canvas.toDataURL("image/jpeg",0.95)
+
+link.click()
+
+resolve()
+
+}
+
+img.src=e.target.result
+
+}
+
+reader.readAsDataURL(file)
+
+})
+
+}
+
+</script>
+
+</body>
+</html>
